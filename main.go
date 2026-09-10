@@ -1,6 +1,6 @@
 // intercept copies of packets (keep Layer 2 for confirmation since it has mac)
 // workflow: parse the raw bytes to structured .csv 
-// or keep scanning and log to the terminal directly
+// 			?keep scanning and log to the terminal directly
 
 package main
 
