@@ -37,7 +37,7 @@ type ETH_TRAILER struct{
 
 type ETH struct{
 	Header *ETH_HEADER
-	Payload	any
+	Payload	any // keep any since we dont know what we get as a payload
 	Trailer *ETH_TRAILER
 }
 
@@ -85,6 +85,10 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 		eth.Payload = (*buffer)[14:]
 	}
 	
+	payloadBytes := eth.Payload.([]byte)
+
+	L4Parser(&payloadBytes)
+
 	return eth, nil
 }
 
