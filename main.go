@@ -24,19 +24,19 @@ func main (){
 	}
 
 	buffer := make([]byte, 1024)
-	for  range(1){
+	for {
 		// we lose address in udp case switch to recvfrom
 		n_bytes, err := syscall.Read(fd, buffer)
 
 		if err!=nil{
 			fmt.Printf("err: %s\n", err)
 		}	
-		eth_packet, err := internal.ParseEth(&buffer, &n_bytes)
+		_, err = internal.ParseEth(&buffer, &n_bytes)
 
 		if err!=nil{
 			fmt.Printf("err: %s\n", err)
 		}
-		internal.PrintEth(eth_packet)
+		// internal.PrintEth(eth_packet)
 		//fmt.Printf("read %d bytes, raw bytes:\n%x\n", n_bytes, buffer[:n_bytes])
 	}
 }

@@ -9,6 +9,7 @@ type L3Protocols string
 const (
 	IPV4 L3Protocols = "ipv4"
 	IPV6 L3Protocols = "ipv6"
+	ARP L3Protocols = "arp"
 	UNKNOWN_TO_PARSER L3Protocols = ""
 )
 
@@ -48,6 +49,18 @@ type IP4 struct{
 type IP6 struct{
 	Header *IPV6_H
 	Payload []byte
+}
+
+type ARP_H struct{
+	HardwareType [2]byte
+	ProtocolType [2]byte // specify on this if we need to parse
+	HardwareAddrLen byte 
+	ProtocolAddrLen byte 
+	Operation [2]byte // 1 -> request, 2 -> response
+	SenderHardwareAddr [4]byte
+	SenderProtocolAddr [4]byte
+	TargetHardwareAddr [4]byte
+	TargetProtocolAddr [4]byte
 }
 
 func CheckIpVersion(buffer *[]byte) (int){
@@ -192,21 +205,76 @@ Dest Addr: %x
 )
 }
 
+func ParseARP(buffer *[]byte) (ARP_H, error){
+	var arp = ARP_H{}
+
+	if len(*buffer) < 28{
+		return ARP_H{}, fmt.Errorf("arp: buffer too short: %d bytes", len(*buffer))
+	}
+
+	copy(arp.HardwareType[:], (*buffer)[0:2])
+	copy(arp.ProtocolType[:], (*buffer)[2:4])
+	arp.HardwareAddrLen = (*buffer)[4]
+	arp.ProtocolAddrLen = (*buffer)[5]
+	copy(arp.Operation[:], (*buffer)[6:8])
+
+	operation := binary.BigEndian.Uint16(arp.Operation[:])
+
+	if operation != 2 && operation != 1 {
+		return ARP_H{}, fmt.Errorf("unknow arp operation: %d", len(*buffer))
+	}
+
+	copy(arp.SenderHardwareAddr[:], (*buffer)[8:14])
+	copy(arp.SenderProtocolAddr[:], (*buffer)[14:18])
+	copy(arp.TargetHardwareAddr[:], (*buffer)[18:24])
+	copy(arp.TargetProtocolAddr[:], (*buffer)[24:28])
+
+	PrintARP(&arp)
+	return arp, nil
+}
+
+func PrintARP(arp *ARP_H){
+	fmt.Printf(`
+Hardware type: %x
+Protocol type: %x
+Hardware address len: %x
+Protocol Address Length: %x
+Operation: %x
+Sender Hardware Address: %x
+Sender Protocol Address: %x
+Target Hardware Address: %x
+Target Protocol Address: %x
+`,
+arp.HardwareType, 
+arp.ProtocolType,
+arp.HardwareAddrLen,
+arp.ProtocolAddrLen,
+arp.Operation,
+arp.SenderHardwareAddr,
+arp.SenderProtocolAddr,
+arp.TargetHardwareAddr,
+arp.TargetProtocolAddr,
+)
+}
 
 func L4Parser(buffer *[]byte) (any, L3Protocols, error) {
 	version := CheckIpVersion(buffer)
+	validVersion := version == 4 || version == 6
 
-	switch version{
-	case 4:
-		ip4, err := ParseIpv4(buffer)
-		return ip4, IPV4 ,err
-	case 6:
-		ip6, err := ParseIpv6(buffer)
-		return ip6, IPV6 ,err
-		
-	default: 
-		return nil, UNKNOWN_TO_PARSER, nil
+	if (validVersion){
+		switch version{
+		case 4:
+			ip4, err := ParseIpv4(buffer)
+			return ip4, IPV4 ,err
+		case 6:
+			ip6, err := ParseIpv6(buffer)
+			return ip6, IPV6 ,err
+			
+		default: 
+			return nil, UNKNOWN_TO_PARSER, nil
+		}
+	}else{
+		arp, err := ParseARP(buffer)
+		return arp, ARP, err
 	}
-
-
 }

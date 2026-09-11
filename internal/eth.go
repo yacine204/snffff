@@ -86,7 +86,7 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	}
 	
 	payloadBytes := eth.Payload.([]byte)
-
+	PrintEth(eth)
 	L4Parser(&payloadBytes)
 
 	return eth, nil
@@ -94,6 +94,6 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 
 func PrintEth(eth ETH){ 
 	fmt.Printf(
-		"D_Mac: %x\nS_Mac: %x\nV_tag: %x\nEth_type: %x\nPayload: %x\n",
+		"D_Mac: %x\nS_Mac: %x\nV_tag: %x\nEth_type: %x\nPayload: %x\n\n",
 		eth.Header.D_MAC[:], eth.Header.S_MAC[:], eth.Header.V_TAG[:] ,eth.Header.ETH_TYPE[:], eth.Payload)
 }
