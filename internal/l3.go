@@ -6,6 +6,13 @@ import (
 )
 
 type L3Protocols string
+
+
+const (
+	tcp uint8 = 6
+)
+
+// remove this after
 const (
 	IPV4 L3Protocols = "ipv4"
 	IPV6 L3Protocols = "ipv6"
@@ -63,6 +70,15 @@ type ARP_H struct{
 	TargetProtocolAddr [4]byte
 }
 
+func ParseInsideIpv4(ipv4 *IP4){
+	switch ipv4.Header.Protocol{
+	case tcp:
+		ParseTCP(&ipv4.Payload)
+	default: 
+		fmt.Printf("Protocol not parsed yet! %d\n", ipv4.Header.Protocol)
+	}
+}
+
 func CheckIpVersion(buffer *[]byte) (int){
 	version := int((*buffer)[0] >> 4) 
 	if version == 4 || version == 6{
@@ -106,7 +122,7 @@ func ParseIpv4(buffer *[]byte) (IP4, error){
 
 	// todo : move print outside of func
 	PrintIPv4(&ipv4, true)
-
+	ParseInsideIpv4(&ipv4)
 	return ipv4, nil
 }
 
