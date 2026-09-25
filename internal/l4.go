@@ -10,8 +10,8 @@ import (
 // add flags for tcp
 
 type TCP struct{
-	Source_ip [2]byte
-	Dest_ip [2]byte
+	Source_port [2]byte
+	Dest_port [2]byte
 	Sequence_number [4]byte
 	Acknowledge_number [4]byte
 	Data_offset byte
@@ -33,22 +33,23 @@ func ParseTCP(buffer *[]byte) (TCP, error){
 
 	tcp := TCP{}
 
-	copy(tcp.Source_ip[:], (*buffer)[0:2])
-	copy(tcp.Dest_ip[:], (*buffer)[2:4])
-	copy(tcp.Acknowledge_number[:], (*buffer)[4:8])
-	DRF := binary.BigEndian.Uint16((*buffer)[8:10]) // Data offset & Reserved & Flags
+	copy(tcp.Source_port[:], (*buffer)[0:2])
+	copy(tcp.Dest_port[:], (*buffer)[2:4])
+	copy(tcp.Sequence_number[:], (*buffer)[4:8])
+	copy(tcp.Acknowledge_number[:], (*buffer)[8:12])
+	DRF := binary.BigEndian.Uint16((*buffer)[12:14]) // Data offset & Reserved & Flags
 
-	data_offset := uint8(DRF & 0xF000 >> 12)
-	reserved := uint8(DRF & 0x0E00 >> 9)
+	data_offset := uint8((DRF & 0xF000) >> 12)
+	reserved := uint8((DRF & 0x0E00) >> 9)
 	flags := DRF & 0x01FF
 
 	tcp.Data_offset = data_offset
 	tcp.Resereved = reserved
 	tcp.Control_flags= flags
 
-	copy(tcp.Window_size[:], (*buffer)[10:12])
-	copy(tcp.Check_sum[:], (*buffer)[12:14])
-	copy(tcp.Urgent_pointer[:], (*buffer)[14:16])
+	copy(tcp.Window_size[:], (*buffer)[14:16])
+	copy(tcp.Check_sum[:], (*buffer)[16:18])
+	copy(tcp.Urgent_pointer[:], (*buffer)[18:20])
 	
 	totalHeaderSize := int(data_offset) * 4
 	// copy options only if data offset index > 5 bytes
@@ -56,7 +57,7 @@ func ParseTCP(buffer *[]byte) (TCP, error){
 		tcp.Options = (*buffer)[20:totalHeaderSize]
 	}
 
-	tcp.Data= (*buffer)[tcp.Data_offset:]
+	tcp.Data= (*buffer)[totalHeaderSize:]
 
 	PrintTCP(&tcp, false)
 
@@ -66,14 +67,14 @@ func ParseTCP(buffer *[]byte) (TCP, error){
 func PrintTCP(tcp *TCP, mask bool){
 	var sIP []byte
 	if mask{
-		sIP = []byte{0,0,0,}
+		sIP = []byte{0,0}
 	}else{
-		sIP = tcp.Source_ip[:]
+		sIP = tcp.Source_port[:]
 	}
 
 	fmt.Printf(`
-Source_ip: %x
-Dest_ip: %x
+Source_port: %x
+Dest_port: %x
 Sequence_number: %x
 Acknowledge_number: %x
 Data_offset: %x
@@ -87,7 +88,7 @@ Data: %x
 
 `,
 	sIP, 
-	tcp.Dest_ip, 
+	tcp.Dest_port, 
 	tcp.Sequence_number,
 	tcp.Acknowledge_number,
 	tcp.Data_offset,
