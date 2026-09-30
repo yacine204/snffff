@@ -1,3 +1,5 @@
 - [ ] filtering packets by layers and protocols
 - [ ] inject packets and track them
-- [ ] 
+- [ ] add tui (gocui/tview)
+- [ ] l5 (display html in tui?)
+- [ ] reassamble tcp packets

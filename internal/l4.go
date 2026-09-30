@@ -1,5 +1,3 @@
-// Layer 4 protocols types and parsing
-
 package internal
 
 import (
@@ -8,6 +6,7 @@ import (
 )
 
 // add flags for tcp
+// todo: add func ReassambleTcp
 
 type TCP struct{
 	Source_port [2]byte
