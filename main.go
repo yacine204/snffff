@@ -21,6 +21,9 @@ func main (){
 	if err!=nil{
 		fmt.Printf("err: %s\n", err)
 	}
+
+	go internal.PacketWorker()
+	
 	go internal.TriggerPrintTcpBucket()
 	buffer := make([]byte, 1024)
 	for {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 )
 
 // add flags for tcp
@@ -47,15 +48,33 @@ func GenerateFlowID(tcp *TCP) (string){
 
 var tcpBucket = make(map[string][]TCP)
 
-func GroupTcp(tcp *TCP, flowId string){
+var tcpBucketMutex sync.RWMutex
+
+var PacketChan = make(chan TCP, 1000)
+
+func PassTCP(tcp *TCP){
+	PacketChan <- *tcp
+}
+
+func GroupTcp(tcp *TCP){
+	flowId := GenerateFlowID(tcp)
+	tcpBucketMutex.Lock()
 	tcpBucket[flowId] = append(tcpBucket[flowId], *tcp)
+	tcpBucketMutex.Unlock()
+}
+
+func PacketWorker(){
+	for tcp := range PacketChan{
+		localTcp := tcp
+		GroupTcp(&localTcp)
+	}
 }
 
 func PrintTcpBucket(tcpBucket map[string][]TCP){
 	// for each uid print the list of tcp's
 
 	for flowId, tcps := range tcpBucket{
-		fmt.Printf("%s\n", flowId)
+		fmt.Printf("flow id: %s\n", flowId)
 		for _, tcp := range tcps{
 			PrintTCP(&tcp, false)
 		}
@@ -67,7 +86,11 @@ func TriggerPrintTcpBucket(){
 	signal.Notify(c, os.Interrupt)
 	
 	<-c
+
+	tcpBucketMutex.RLock()
 	PrintTcpBucket(tcpBucket)
+	tcpBucketMutex.RUnlock()
+
 	os.Exit(0)
 }
 
@@ -106,8 +129,8 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte) (TCP, error){
 
 	PrintTCP(&tcp, false)
 
-	
-	GroupTcp(&tcp, GenerateFlowID(&tcp))
+	PassTCP(&tcp)
+	//GroupTcp(&tcp, GenerateFlowID(&tcp))
 
 	return tcp, nil
 }
