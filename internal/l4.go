@@ -21,6 +21,10 @@ type TCP struct{
 	Urgent_pointer [2]byte
 	Options []byte
 	Data []byte
+
+	// for tcp reassambly
+	Source_ip []byte
+	Dest_ip []byte
 }
 
 type UDP struct{
@@ -28,9 +32,26 @@ type UDP struct{
 	Dest_ip byte
 }
 
-func ParseTCP(buffer *[]byte) (TCP, error){
+
+
+type TcpGroup struct{
+	tcps [][]TCP
+}
+
+var tcpReorder = TcpGroup{}
+
+
+func ReassambleTcp(reassamble *TCP){
+	
+}
+
+
+func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte) (TCP, error){
 
 	tcp := TCP{}
+
+	tcp.Source_ip = srcIP
+	tcp.Dest_ip = destIp
 
 	copy(tcp.Source_port[:], (*buffer)[0:2])
 	copy(tcp.Dest_port[:], (*buffer)[2:4])
@@ -59,6 +80,8 @@ func ParseTCP(buffer *[]byte) (TCP, error){
 	tcp.Data= (*buffer)[totalHeaderSize:]
 
 	PrintTCP(&tcp, false)
+
+	ReassambleTcp(&tcp)
 
 	return tcp, nil
 }
