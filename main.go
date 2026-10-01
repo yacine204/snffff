@@ -1,14 +1,13 @@
 // intercept copies of packets (keep Layer 2 for confirmation since it has mac)
-// workflow: parse the raw bytes to structured .csv 
+// workflow: parse the raw bytes to structured .csv
 // 			?keep scanning and log to the terminal directly
 
 package main
 
-import 
-(	
-	"syscall"
+import (
 	"fmt"
 	"packet_sniffer/internal"
+	"syscall"
 )
 
 // shift left side of 16 bit integer to the right
@@ -22,7 +21,7 @@ func main (){
 	if err!=nil{
 		fmt.Printf("err: %s\n", err)
 	}
-
+	go internal.TriggerPrintTcpBucket()
 	buffer := make([]byte, 1024)
 	for {
 		// we lose address in udp case switch to recvfrom
@@ -38,5 +37,6 @@ func main (){
 		}
 		// internal.PrintEth(eth_packet)
 		//fmt.Printf("read %d bytes, raw bytes:\n%x\n", n_bytes, buffer[:n_bytes])
-	}
+		
+	}	
 }

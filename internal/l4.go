@@ -3,6 +3,8 @@ package internal
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
+	"os/signal"
 )
 
 // add flags for tcp
@@ -33,18 +35,41 @@ type UDP struct{
 }
 
 
+func GenerateFlowID(tcp *TCP) (string){
+	srcIPStr := string(tcp.Source_ip)
+	dstIPStr := string(tcp.Dest_ip)
 
-type TcpGroup struct{
-	tcps [][]TCP
+	srcPort := binary.BigEndian.Uint16(tcp.Source_port[:])
+	dstPort := binary.BigEndian.Uint16(tcp.Dest_port[:])
+
+	return fmt.Sprintf("%s:%d-%s:%d", srcIPStr, srcPort, dstIPStr, dstPort)
 }
 
-var tcpReorder = TcpGroup{}
+var tcpBucket = make(map[string][]TCP)
 
+func GroupTcp(tcp *TCP, flowId string){
+	tcpBucket[flowId] = append(tcpBucket[flowId], *tcp)
+}
 
-func ReassambleTcp(reassamble *TCP){
+func PrintTcpBucket(tcpBucket map[string][]TCP){
+	// for each uid print the list of tcp's
+
+	for flowId, tcps := range tcpBucket{
+		fmt.Printf("%s\n", flowId)
+		for _, tcp := range tcps{
+			PrintTCP(&tcp, false)
+		}
+	}
+}
+
+func TriggerPrintTcpBucket(){
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
 	
+	<-c
+	PrintTcpBucket(tcpBucket)
+	os.Exit(0)
 }
-
 
 func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte) (TCP, error){
 
@@ -81,7 +106,8 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte) (TCP, error){
 
 	PrintTCP(&tcp, false)
 
-	ReassambleTcp(&tcp)
+	
+	GroupTcp(&tcp, GenerateFlowID(&tcp))
 
 	return tcp, nil
 }
