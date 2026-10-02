@@ -5,7 +5,8 @@ Minimal packet sniffer using unix syscalls and byte parsing
 ## What it does 
 
 - Intercepts ethernet packets using `AF_PACKET`  sockets
-- parses layer 2 and 3 from osi
+- parses layer 2-4 from osi
+- grouping/reassembling tcp packets by flow
 
 output sample: 
 ```bash
