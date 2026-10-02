@@ -8,9 +8,6 @@ import (
 	"sync"
 )
 
-// add flags for tcp
-// todo: add func ReassambleTcp
-
 type TCP struct{
 	Source_port [2]byte
 	Dest_port [2]byte
@@ -28,6 +25,8 @@ type TCP struct{
 	// for tcp reassambly
 	Source_ip []byte
 	Dest_ip []byte
+
+	IpVersion L3Protocols
 }
 
 type UDP struct{
@@ -37,8 +36,8 @@ type UDP struct{
 
 
 func GenerateFlowID(tcp *TCP) (string){
-	srcIPStr := string(tcp.Source_ip)
-	dstIPStr := string(tcp.Dest_ip)
+	srcIPStr := IpToString(tcp.Source_ip, tcp.IpVersion)
+	dstIPStr := IpToString(tcp.Dest_ip, tcp.IpVersion)
 
 	srcPort := binary.BigEndian.Uint16(tcp.Source_port[:])
 	dstPort := binary.BigEndian.Uint16(tcp.Dest_port[:])
@@ -52,8 +51,11 @@ var tcpBucketMutex sync.RWMutex
 
 var PacketChan = make(chan TCP, 1000)
 
+var PacketReassemblyTrigger = make(chan TCP, 1000)
+
 func PassTCP(tcp *TCP){
 	PacketChan <- *tcp
+	PacketReassemblyTrigger <- *tcp
 }
 
 func GroupTcp(tcp *TCP){
@@ -63,21 +65,126 @@ func GroupTcp(tcp *TCP){
 	tcpBucketMutex.Unlock()
 }
 
-func PacketWorker(){
-	for tcp := range PacketChan{
-		localTcp := tcp
-		GroupTcp(&localTcp)
+func IpToString(ip []byte, version L3Protocols) string {
+    if version == IPV4 {
+        if len(ip) != 4 {
+            return "?"
+        }
+        return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+    }
+    if version == IPV6 {
+        if len(ip) != 16 {
+            return "?"
+        }
+        return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
+            binary.BigEndian.Uint16(ip[0:2]),
+            binary.BigEndian.Uint16(ip[2:4]),
+            binary.BigEndian.Uint16(ip[4:6]),
+            binary.BigEndian.Uint16(ip[6:8]),
+            binary.BigEndian.Uint16(ip[8:10]),
+            binary.BigEndian.Uint16(ip[10:12]),
+            binary.BigEndian.Uint16(ip[12:14]),
+            binary.BigEndian.Uint16(ip[14:16]),
+        )
+    }
+    return ""
+}
+
+func getMaxAllocSizeForFlow(tcpArray []TCP) uint {
+    if len(tcpArray) == 0 {
+        return 0
+    }
+    isn := binary.BigEndian.Uint32(tcpArray[0].Sequence_number[:])
+    for _, tcp := range tcpArray {
+        seq := binary.BigEndian.Uint32(tcp.Sequence_number[:])
+        if seq < isn {
+            isn = seq
+        }
+    }
+    var maxEnd uint32
+    for _, tcp := range tcpArray {
+        seq := binary.BigEndian.Uint32(tcp.Sequence_number[:])
+        end := (seq - isn) + uint32(len(tcp.Data))
+        if end > maxEnd {
+            maxEnd = end
+        }
+    }
+    return uint(maxEnd)
+}
+
+
+var ReassembledTcp = make(map[string][]byte)
+
+var ReassembleTcpMutex sync.Mutex
+
+
+func ReassembleTcpPerFlow(tcpBucket map[string][]TCP, flowId string){
+	pkts := tcpBucket[flowId]
+
+	if len(pkts) == 0 {
+		return
+	}
+	isn := binary.BigEndian.Uint32(pkts[0].Sequence_number[:])
+
+	for _, tcp := range pkts {
+		seq := binary.BigEndian.Uint32(tcp.Sequence_number[:])
+        if seq < isn {
+            isn = seq
+        }
+	}
+
+	allocsize := getMaxAllocSizeForFlow(tcpBucket[flowId])
+	buf := make([]byte, allocsize)
+
+	// mark sorted packets to not override
+	sortedByPacket := make(map[int]bool)
+
+	for i, tcp := range tcpBucket[flowId]{
+		if sortedByPacket[i]{
+			continue
+		}
+		seq := binary.BigEndian.Uint32(tcp.Sequence_number[:])
+		off := int(seq-isn)
+		if off < 0 || off+len(tcp.Data) > len(buf) {
+			continue
+		}
+		copy(buf[off:], tcp.Data)
+		sortedByPacket[i] = true
+	}
+
+	ReassembleTcpMutex.Lock()
+	ReassembledTcp[flowId] = buf
+	ReassembleTcpMutex.Unlock()
+}
+
+
+func PacketWorker() {
+	for tcp := range PacketChan {
+		local := tcp
+		GroupTcp(&local)
+		flowId := GenerateFlowID(&local)
+
+		tcpBucketMutex.RLock()
+		ReassembleTcpPerFlow(tcpBucket, flowId)
+		tcpBucketMutex.RUnlock()
 	}
 }
 
-func PrintTcpBucket(tcpBucket map[string][]TCP){
+
+func PrintGroupedTcpBucket(tcpBucket map[string][]TCP){
 	// for each uid print the list of tcp's
 
-	for flowId, tcps := range tcpBucket{
-		fmt.Printf("flow id: %s\n", flowId)
+	for fid, tcps := range tcpBucket{
+		fmt.Printf("flow id %s :\n", fid)
 		for _, tcp := range tcps{
 			PrintTCP(&tcp, false)
 		}
+	}
+}
+
+func  PrintReassembledTcpBucket(reassembledTcpBucket map[string][]byte){
+	for fid, tcp := range reassembledTcpBucket{
+		fmt.Printf("flow id %s: \n% x\n", fid, tcp)
 	}
 }
 
@@ -88,18 +195,21 @@ func TriggerPrintTcpBucket(){
 	<-c
 
 	tcpBucketMutex.RLock()
-	PrintTcpBucket(tcpBucket)
+	ReassembleTcpMutex.Lock()
+	// PrintGroupedTcpBucket(tcpBucket)
+	PrintReassembledTcpBucket(ReassembledTcp)
+	ReassembleTcpMutex.Unlock()
 	tcpBucketMutex.RUnlock()
 
 	os.Exit(0)
 }
 
-func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte) (TCP, error){
+func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte, version L3Protocols) (TCP, error){
 
 	tcp := TCP{}
 
-	tcp.Source_ip = srcIP
-	tcp.Dest_ip = destIp
+	tcp.Source_ip = append([]byte(nil), srcIP...)
+	tcp.Dest_ip = append([]byte(nil), destIp...)
 
 	copy(tcp.Source_port[:], (*buffer)[0:2])
 	copy(tcp.Dest_port[:], (*buffer)[2:4])
@@ -122,10 +232,10 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte) (TCP, error){
 	totalHeaderSize := int(data_offset) * 4
 	// copy options only if data offset index > 5 bytes
 	if data_offset > 5 {
-		tcp.Options = (*buffer)[20:totalHeaderSize]
+		tcp.Options = append([]byte(nil), (*buffer)[20:totalHeaderSize]...)
 	}
-
-	tcp.Data= (*buffer)[totalHeaderSize:]
+	tcp.IpVersion = version
+	tcp.Data = append([]byte(nil), (*buffer)[totalHeaderSize:]...)
 
 	PrintTCP(&tcp, false)
 

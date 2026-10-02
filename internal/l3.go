@@ -73,7 +73,7 @@ type ARP_H struct{
 func ParseInsideIpv4(ipv4 *IP4){
 	switch ipv4.Header.Protocol{
 	case tcp:
-		ParseTCP(&ipv4.Payload, ipv4.Header.SourceAddr[:], ipv4.Header.DestAddr[:])
+		ParseTCP(&ipv4.Payload, ipv4.Header.SourceAddr[:], ipv4.Header.DestAddr[:], IPV4)
 	default: 
 		fmt.Printf("Protocol not parsed yet! %d\n", ipv4.Header.Protocol)
 	}
@@ -82,7 +82,7 @@ func ParseInsideIpv4(ipv4 *IP4){
 func ParseInsideIpv6(ipv6 *IP6){
 	switch ipv6.Header.NextHeader{
 	case tcp:
-		ParseTCP(&ipv6.Payload, ipv6.Header.SourceAddr[:], ipv6.Header.DestAddr[:])
+		ParseTCP(&ipv6.Payload, ipv6.Header.SourceAddr[:], ipv6.Header.DestAddr[:], IPV6)
 	default:
 		fmt.Printf("Protocol not parsed yet! %d\n", ipv6.Header.NextHeader)
 	}

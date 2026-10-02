@@ -20,23 +20,27 @@ func main (){
 
 	if err!=nil{
 		fmt.Printf("err: %s\n", err)
+		return
 	}
 
 	go internal.PacketWorker()
-	
 	go internal.TriggerPrintTcpBucket()
-	buffer := make([]byte, 1024)
+
+	buffer := make([]byte, 65536)
 	for {
 		// we lose address in udp case switch to recvfrom
 		n_bytes, err := syscall.Read(fd, buffer)
 
 		if err!=nil{
 			fmt.Printf("err: %s\n", err)
+			return
 		}	
-		_, err = internal.ParseEth(&buffer, &n_bytes)
+		pkt := buffer[:n_bytes]
+		_, err = internal.ParseEth(&pkt, &n_bytes)
 
 		if err!=nil{
 			fmt.Printf("err: %s\n", err)
+			return
 		}
 		// internal.PrintEth(eth_packet)
 		//fmt.Printf("read %d bytes, raw bytes:\n%x\n", n_bytes, buffer[:n_bytes])
