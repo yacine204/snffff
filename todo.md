@@ -2,6 +2,6 @@
 - [ ] inject packets and track them
 - [ ] add tui (gocui/tview)
 - [ ] l5 (display html in tui?)
-- [ ] reassamble tcp packets
+- [x] reassamble tcp packets
   - [x] grouping by flow id
-  - [ ] reassambly
+  - [x] reassambly
