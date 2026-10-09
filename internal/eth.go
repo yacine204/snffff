@@ -37,34 +37,18 @@ type ETH_TRAILER struct{
 
 type ETH struct{
 	Header *ETH_HEADER
-	Payload	any // keep any since we dont know what we get as a payload
+	Payload	[]byte 
 	Trailer *ETH_TRAILER
+	Inner L3Capsule
+	Inner_Protocol L3Protocols
 }
 
-func reallocPayloadSize(packet *ETH) (bool, Alloc, error){
-	// allocate ETH payload type or size from ETHERTYPE value
-	ETH_TYPE_uint16 := binary.BigEndian.Uint16(packet.Header.ETH_TYPE[:])
-	if ETH_TYPE_uint16 >= 1536 {
-		switch ETH_TYPE_uint16{
-		case uint16(ETH_IPV4):
-			packet.Payload = IP4{}
-			return true, Alloc{Type: ETH_IPV4, Size: ETH_IPV4_SIZE} ,nil
-		case uint16(ETH_IPV6):
-			packet.Payload = IP6{}
-			return true, Alloc{Type: ETH_IPV6, Size: ETH_IPV6_SIZE} ,nil
-		// todo : add ARP, ...
-		default:
-			return false, Alloc{}, fmt.Errorf("unrecognized ETHERTYPE: %d\n", packet.Header.ETH_TYPE)
-		}
-	}else{
-		packet.Payload = make([]byte, ETH_TYPE_uint16)
-		return false, Alloc{}, nil
-	}
-	
-}
+
+
 
 func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	var eth = ETH{}
+
 	eth.Header = &ETH_HEADER{}
 	eth.Trailer = &ETH_TRAILER{}
 
@@ -75,19 +59,24 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	if binary.BigEndian.Uint16((*buffer)[12:14]) == 0x8100 ||  binary.BigEndian.Uint16((*buffer)[12:14])== 0x88A8 {
 		copy(eth.Header.V_TAG[:], (*buffer)[12:16])
 		copy(eth.Header.ETH_TYPE[:], (*buffer)[16:18])
-		// _, alloc, _ := reallocPayloadSize(&eth)
-		//copy(eth.Trailer.FCS[:], (*buffer)[18+alloc.Size:])
 		eth.Payload = (*buffer)[18:]
 	}else{
 		copy(eth.Header.ETH_TYPE[:], (*buffer)[12:14])
-		// _, alloc, _ := reallocPayloadSize(&eth)
-		// copy(eth.Trailer.FCS[:], (*buffer)[14+alloc.Size:])
 		eth.Payload = (*buffer)[14:]
 	}
 	
-	payloadBytes := eth.Payload.([]byte)
+	payloadBytes := eth.Payload
+
 	PrintEth(eth)
-	L4Parser(&payloadBytes)
+
+	capsule, protocol, err := L3Parser(&payloadBytes)
+
+	if err!=nil{
+		return ETH{}, err
+	}
+
+	eth.Inner = capsule
+	eth.Inner_Protocol = protocol
 
 	return eth, nil
 }

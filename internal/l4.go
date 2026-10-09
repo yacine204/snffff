@@ -29,11 +29,21 @@ type TCP struct{
 	IpVersion L3Protocols
 }
 
-type UDP struct{
-	Source_ip byte
-	Dest_ip byte
+type UDP_H struct{
+	Source_port [2]byte
+	Dest_port [2]byte
+	Check_sum [2]byte
+	Length [2]byte
 }
 
+type UDP struct{
+	Header *UDP_H
+	Udp_data []byte
+}
+
+type L4Capsule interface{
+	Print(mask bool)
+}
 
 func GenerateFlowID(tcp *TCP) (string){
 	srcIPStr := IpToString(tcp.Source_ip, tcp.IpVersion)
@@ -63,31 +73,6 @@ func GroupTcp(tcp *TCP){
 	tcpBucketMutex.Lock()
 	tcpBucket[flowId] = append(tcpBucket[flowId], *tcp)
 	tcpBucketMutex.Unlock()
-}
-
-func IpToString(ip []byte, version L3Protocols) string {
-    if version == IPV4 {
-        if len(ip) != 4 {
-            return "?"
-        }
-        return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
-    }
-    if version == IPV6 {
-        if len(ip) != 16 {
-            return "?"
-        }
-        return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
-            binary.BigEndian.Uint16(ip[0:2]),
-            binary.BigEndian.Uint16(ip[2:4]),
-            binary.BigEndian.Uint16(ip[4:6]),
-            binary.BigEndian.Uint16(ip[6:8]),
-            binary.BigEndian.Uint16(ip[8:10]),
-            binary.BigEndian.Uint16(ip[10:12]),
-            binary.BigEndian.Uint16(ip[12:14]),
-            binary.BigEndian.Uint16(ip[14:16]),
-        )
-    }
-    return ""
 }
 
 func getMaxAllocSizeForFlow(tcpArray []TCP) uint {
@@ -177,7 +162,7 @@ func PrintGroupedTcpBucket(tcpBucket map[string][]TCP){
 	for fid, tcps := range tcpBucket{
 		fmt.Printf("flow id %s :\n", fid)
 		for _, tcp := range tcps{
-			PrintTCP(&tcp, false)
+			tcp.Print(true)
 		}
 	}
 }
@@ -237,7 +222,7 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte, version L3Protocols) 
 	tcp.IpVersion = version
 	tcp.Data = append([]byte(nil), (*buffer)[totalHeaderSize:]...)
 
-	PrintTCP(&tcp, false)
+	tcp.Print(true)
 
 	PassTCP(&tcp)
 	//GroupTcp(&tcp, GenerateFlowID(&tcp))
@@ -245,7 +230,25 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte, version L3Protocols) 
 	return tcp, nil
 }
 
-func PrintTCP(tcp *TCP, mask bool){
+func ParseUDP(buffer *[]byte) (UDP, error){
+	var udp = UDP{}
+
+	length := (*buffer)[4:6]
+
+	if binary.BigEndian.Uint16(length) == 0 {
+		return UDP{}, fmt.Errorf("udp length == 0")
+	}
+
+	copy(udp.Header.Source_port[:], (*buffer)[0:2])
+	copy(udp.Header.Dest_port[:], (*buffer)[2:4])
+	copy(udp.Header.Length[:], (*buffer)[4:6])
+	copy(udp.Header.Check_sum[:], (*buffer)[6:8])
+	copy(udp.Udp_data[:], (*buffer)[8:])
+
+	return udp, nil
+}
+
+func (tcp *TCP) Print(mask bool){
 	var sIP []byte
 	if mask{
 		sIP = []byte{0,0}
@@ -280,5 +283,22 @@ Data: %x
 	tcp.Urgent_pointer,
 	tcp.Options,
 	tcp .Data,
+)
+}
+
+func (udp *UDP) Print(mask bool){
+	fmt.Printf(`
+Source Port: %x
+Dest Port: %x
+Length: %x
+Check Sum: %x
+Data: %x
+
+`,
+udp.Header.Source_port,
+udp.Header.Dest_port,
+udp.Header.Length,
+udp.Header.Check_sum,
+udp.Udp_data,
 )
 }

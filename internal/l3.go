@@ -10,6 +10,7 @@ type L3Protocols string
 
 const (
 	tcp uint8 = 6
+	udp uint8 = 17
 )
 
 // remove this after
@@ -51,11 +52,13 @@ type IPV6_H struct {
 type IP4 struct{
 	Header *IPV4_H
 	Payload []byte
+	Inner L4Capsule
 }
 
 type IP6 struct{
 	Header *IPV6_H
 	Payload []byte
+	inner L4Capsule
 }
 
 type ARP_H struct{
@@ -70,23 +73,147 @@ type ARP_H struct{
 	TargetProtocolAddr [4]byte
 }
 
-func ParseInsideIpv4(ipv4 *IP4){
+type L3Capsule interface{
+	PrintL3(mask bool)
+	ParseInside()
+}
+
+
+func (ipv4 *IP4) PrintL3(mask bool){
+    var srcIP []byte
+    if mask {
+        srcIP = []byte{0, 0, 0, 0}
+    } else {
+        srcIP = ipv4.Header.SourceAddr[:]
+    }
+
+    fmt.Printf(`Version: %x
+IHL: %x
+TOS: %x
+Total length: %x
+Identification: %x
+Flags: %x
+Fragment offset: %x
+TTL: %x
+Protocol: %d
+Header checksum: %x
+Source Addr: %x
+Dest Addr: %x
+Options: %x
+Data: %x
+
+`,
+    ipv4.Header.Version,
+    ipv4.Header.IHL,
+    ipv4.Header.TOS,
+    ipv4.Header.TotalLength,
+    ipv4.Header.Indent,
+    ipv4.Header.Flags,
+    ipv4.Header.FragOffset,
+    ipv4.Header.TTL,
+    ipv4.Header.Protocol,
+    ipv4.Header.HeaderCS,
+    srcIP,
+    ipv4.Header.DestAddr,
+    ipv4.Header.Options,
+    ipv4.Payload,
+    )
+}
+
+func (ipv6 *IP6) PrintL3(mask bool){
+	var srcIP []byte
+	if mask{
+		srcIP = []byte{0,0,0,0}
+	}else{
+		srcIP = ipv6.Header.SourceAddr[:]
+	}
+
+	fmt.Printf(`Version: %x
+Traffic Class: %x
+Flow label: %x
+Payload Length: %x
+Next Header: %x
+Hop Limit: %x
+Source Addr: %x
+Dest Addr: %x
+
+`,
+	ipv6.Header.Version,
+	ipv6.Header.TrafficClass,
+	ipv6.Header.FlowLabel,
+	ipv6.Header.PayloadLen,
+	ipv6.Header.NextHeader,
+	ipv6.Header.HopLimit,
+	srcIP,
+	ipv6.Header.DestAddr,
+)
+}
+
+func (arp *ARP_H)PrintL3(mask bool){
+	fmt.Printf(`
+Hardware type: %x
+Protocol type: %x
+Hardware address len: %x
+Protocol Address Length: %x
+Operation: %x
+Sender Hardware Address: %x
+Sender Protocol Address: %x
+Target Hardware Address: %x
+Target Protocol Address: %x
+`,
+arp.HardwareType, 
+arp.ProtocolType,
+arp.HardwareAddrLen,
+arp.ProtocolAddrLen,
+arp.Operation,
+arp.SenderHardwareAddr,
+arp.SenderProtocolAddr,
+arp.TargetHardwareAddr,
+arp.TargetProtocolAddr,
+)
+}
+
+func (ipv4 *IP4) ParseInside(){
 	switch ipv4.Header.Protocol{
 	case tcp:
-		ParseTCP(&ipv4.Payload, ipv4.Header.SourceAddr[:], ipv4.Header.DestAddr[:], IPV4)
+		inner, err := ParseTCP(&ipv4.Payload, ipv4.Header.SourceAddr[:], ipv4.Header.DestAddr[:], IPV4)
+		if err!=nil{
+			fmt.Printf("%s\n", err) 
+		}
+		ipv4.Inner = &inner
+	case udp:
+		inner , err := ParseUDP(&ipv4.Payload)
+		if err!=nil{
+			fmt.Printf("%s\n", err) 
+		}
+		ipv4.Inner = &inner
 	default: 
 		fmt.Printf("Protocol not parsed yet! %d\n", ipv4.Header.Protocol)
 	}
 }
 
-func ParseInsideIpv6(ipv6 *IP6){
+func (ipv6 *IP6) ParseInside(){
 	switch ipv6.Header.NextHeader{
 	case tcp:
-		ParseTCP(&ipv6.Payload, ipv6.Header.SourceAddr[:], ipv6.Header.DestAddr[:], IPV6)
+		inner, err := ParseTCP(&ipv6.Payload, ipv6.Header.SourceAddr[:], ipv6.Header.DestAddr[:], IPV6)
+		if err!=nil{
+			fmt.Printf("%s\n", err) 
+		}
+		ipv6.inner = &inner
+
+	case udp:
+		inner, err := ParseUDP(&ipv6.Payload)
+		if err!=nil{
+			fmt.Printf("%s\n", err) 
+		}
+		ipv6.inner = &inner
 	default:
 		fmt.Printf("Protocol not parsed yet! %d\n", ipv6.Header.NextHeader)
 	}
 }
+
+func (arp *ARP_H) ParseInside(){}
+
 
 func CheckIpVersion(buffer *[]byte) (int){
 	version := int((*buffer)[0] >> 4) 
@@ -130,8 +257,7 @@ func ParseIpv4(buffer *[]byte) (IP4, error){
 	}
 
 	// todo : move print outside of func
-	PrintIPv4(&ipv4, true)
-	ParseInsideIpv4(&ipv4)
+	ipv4.ParseInside()
 	return ipv4, nil
 }
 
@@ -155,79 +281,8 @@ func ParseIpv6(buffer *[]byte) (IP6, error){
 	// todo : parse extension headers seperately in the payload
 	ipv6.Payload = (*buffer)[40:]
 
-	// todo : move print outside of func
-	PrintIPv6(&ipv6, true)
+	ipv6.ParseInside()
 	return ipv6, nil
-}
-
-func PrintIPv4(ipv4 *IP4, mask bool) {
-    var srcIP []byte
-    if mask {
-        srcIP = []byte{0, 0, 0, 0}
-    } else {
-        srcIP = ipv4.Header.SourceAddr[:]
-    }
-
-    fmt.Printf(`Version: %x
-IHL: %x
-TOS: %x
-Total length: %x
-Identification: %x
-Flags: %x
-Fragment offset: %x
-TTL: %x
-Protocol: %d
-Header checksum: %x
-Source Addr: %x
-Dest Addr: %x
-Options: %x
-Data: %x
-
-`,
-    ipv4.Header.Version,
-    ipv4.Header.IHL,
-    ipv4.Header.TOS,
-    ipv4.Header.TotalLength,
-    ipv4.Header.Indent,
-    ipv4.Header.Flags,
-    ipv4.Header.FragOffset,
-    ipv4.Header.TTL,
-    ipv4.Header.Protocol,
-    ipv4.Header.HeaderCS,
-    srcIP,
-    ipv4.Header.DestAddr,
-    ipv4.Header.Options,
-    ipv4.Payload,
-    )
-}
-
-func PrintIPv6(ipv6 *IP6, mask bool){
-	var srcIP []byte
-	if mask{
-		srcIP = []byte{0,0,0,0}
-	}else{
-		srcIP = ipv6.Header.SourceAddr[:]
-	}
-
-	fmt.Printf(`Version: %x
-Traffic Class: %x
-Flow label: %x
-Payload Length: %x
-Next Header: %x
-Hop Limit: %x
-Source Addr: %x
-Dest Addr: %x
-
-`,
-	ipv6.Header.Version,
-	ipv6.Header.TrafficClass,
-	ipv6.Header.FlowLabel,
-	ipv6.Header.PayloadLen,
-	ipv6.Header.NextHeader,
-	ipv6.Header.HopLimit,
-	srcIP,
-	ipv6.Header.DestAddr,
-)
 }
 
 func ParseARP(buffer *[]byte) (ARP_H, error){
@@ -254,35 +309,11 @@ func ParseARP(buffer *[]byte) (ARP_H, error){
 	copy(arp.TargetHardwareAddr[:], (*buffer)[18:24])
 	copy(arp.TargetProtocolAddr[:], (*buffer)[24:28])
 
-	PrintARP(&arp)
 	return arp, nil
 }
 
-func PrintARP(arp *ARP_H){
-	fmt.Printf(`
-Hardware type: %x
-Protocol type: %x
-Hardware address len: %x
-Protocol Address Length: %x
-Operation: %x
-Sender Hardware Address: %x
-Sender Protocol Address: %x
-Target Hardware Address: %x
-Target Protocol Address: %x
-`,
-arp.HardwareType, 
-arp.ProtocolType,
-arp.HardwareAddrLen,
-arp.ProtocolAddrLen,
-arp.Operation,
-arp.SenderHardwareAddr,
-arp.SenderProtocolAddr,
-arp.TargetHardwareAddr,
-arp.TargetProtocolAddr,
-)
-}
 
-func L4Parser(buffer *[]byte) (any, L3Protocols, error) {
+func L3Parser(buffer *[]byte) (L3Capsule, L3Protocols, error) {
 	version := CheckIpVersion(buffer)
 	validVersion := version == 4 || version == 6
 
@@ -290,16 +321,45 @@ func L4Parser(buffer *[]byte) (any, L3Protocols, error) {
 		switch version{
 		case 4:
 			ip4, err := ParseIpv4(buffer)
-			return ip4, IPV4 ,err
+			return &ip4, IPV4 ,err
 		case 6:
 			ip6, err := ParseIpv6(buffer)
-			return ip6, IPV6 ,err
+			return &ip6, IPV6 ,err
 			
 		default: 
 			return nil, UNKNOWN_TO_PARSER, nil
 		}
 	}else{
 		arp, err := ParseARP(buffer)
-		return arp, ARP, err
+		return &arp, ARP, err
 	}
 }
+
+
+func IpToString(ip []byte, version L3Protocols) string {
+    if version == IPV4 {
+        if len(ip) != 4 {
+            return "?"
+        }
+        return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+    }
+    if version == IPV6 {
+        if len(ip) != 16 {
+            return "?"
+        }
+        return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
+            binary.BigEndian.Uint16(ip[0:2]),
+            binary.BigEndian.Uint16(ip[2:4]),
+            binary.BigEndian.Uint16(ip[4:6]),
+            binary.BigEndian.Uint16(ip[6:8]),
+            binary.BigEndian.Uint16(ip[8:10]),
+            binary.BigEndian.Uint16(ip[10:12]),
+            binary.BigEndian.Uint16(ip[12:14]),
+            binary.BigEndian.Uint16(ip[14:16]),
+        )
+    }
+    return ""
+}
+
+
+
