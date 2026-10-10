@@ -76,8 +76,8 @@ type ARP_H struct{
 type L3Capsule interface{
 	PrintL3(mask bool)
 	ParseInside()
-}
 
+}
 
 func (ipv4 *IP4) PrintL3(mask bool){
     var srcIP []byte
@@ -178,17 +178,17 @@ func (ipv4 *IP4) ParseInside(){
 	case tcp:
 		inner, err := ParseTCP(&ipv4.Payload, ipv4.Header.SourceAddr[:], ipv4.Header.DestAddr[:], IPV4)
 		if err!=nil{
-			fmt.Printf("%s\n", err) 
+			//fmt.Printf("%s\n", err) 
 		}
 		ipv4.Inner = &inner
 	case udp:
 		inner , err := ParseUDP(&ipv4.Payload)
 		if err!=nil{
-			fmt.Printf("%s\n", err) 
+			//fmt.Printf("%s\n", err) 
 		}
 		ipv4.Inner = &inner
 	default: 
-		fmt.Printf("Protocol not parsed yet! %d\n", ipv4.Header.Protocol)
+		//fmt.Printf("Protocol not parsed yet! %d\n", ipv4.Header.Protocol)
 	}
 }
 
@@ -197,18 +197,18 @@ func (ipv6 *IP6) ParseInside(){
 	case tcp:
 		inner, err := ParseTCP(&ipv6.Payload, ipv6.Header.SourceAddr[:], ipv6.Header.DestAddr[:], IPV6)
 		if err!=nil{
-			fmt.Printf("%s\n", err) 
+			//fmt.Printf("%s\n", err) 
 		}
 		ipv6.inner = &inner
 
 	case udp:
 		inner, err := ParseUDP(&ipv6.Payload)
 		if err!=nil{
-			fmt.Printf("%s\n", err) 
+			//fmt.Printf("%s\n", err) 
 		}
 		ipv6.inner = &inner
 	default:
-		fmt.Printf("Protocol not parsed yet! %d\n", ipv6.Header.NextHeader)
+		//fmt.Printf("Protocol not parsed yet! %d\n", ipv6.Header.NextHeader)
 	}
 }
 
@@ -256,7 +256,6 @@ func ParseIpv4(buffer *[]byte) (IP4, error){
 		return IP4{}, fmt.Errorf("IHL header size not valid: %d\n",ipv4.Header.IHL)
 	}
 
-	// todo : move print outside of func
 	ipv4.ParseInside()
 	return ipv4, nil
 }

@@ -159,8 +159,8 @@ func PacketWorker() {
 func PrintGroupedTcpBucket(tcpBucket map[string][]TCP){
 	// for each uid print the list of tcp's
 
-	for fid, tcps := range tcpBucket{
-		fmt.Printf("flow id %s :\n", fid)
+	for _, tcps := range tcpBucket{
+		//fmt.Printf("flow id %s :\n", fid)
 		for _, tcp := range tcps{
 			tcp.Print(true)
 		}
@@ -182,7 +182,7 @@ func TriggerPrintTcpBucket(){
 	tcpBucketMutex.RLock()
 	ReassembleTcpMutex.Lock()
 	// PrintGroupedTcpBucket(tcpBucket)
-	PrintReassembledTcpBucket(ReassembledTcp)
+	//PrintReassembledTcpBucket(ReassembledTcp)
 	ReassembleTcpMutex.Unlock()
 	tcpBucketMutex.RUnlock()
 
@@ -222,7 +222,7 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte, version L3Protocols) 
 	tcp.IpVersion = version
 	tcp.Data = append([]byte(nil), (*buffer)[totalHeaderSize:]...)
 
-	tcp.Print(true)
+	//tcp.Print(true)
 
 	PassTCP(&tcp)
 	//GroupTcp(&tcp, GenerateFlowID(&tcp))
@@ -232,18 +232,19 @@ func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte, version L3Protocols) 
 
 func ParseUDP(buffer *[]byte) (UDP, error){
 	var udp = UDP{}
+	udp.Header = &UDP_H{}
 
-	length := (*buffer)[4:6]
+	length := binary.BigEndian.Uint16((*buffer)[4:6])
 
-	if binary.BigEndian.Uint16(length) == 0 {
-		return UDP{}, fmt.Errorf("udp length == 0")
+	if length == 0 {
+		//return UDP{}, fmt.Errorf("udp length == 0")
 	}
 
 	copy(udp.Header.Source_port[:], (*buffer)[0:2])
 	copy(udp.Header.Dest_port[:], (*buffer)[2:4])
 	copy(udp.Header.Length[:], (*buffer)[4:6])
 	copy(udp.Header.Check_sum[:], (*buffer)[6:8])
-	copy(udp.Udp_data[:], (*buffer)[8:])
+	copy(udp.Udp_data[:], (*buffer)[8:length])
 
 	return udp, nil
 }

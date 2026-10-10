@@ -5,24 +5,17 @@ import (
 	"fmt"
 )
 
-type ETH_TYPE uint
-
-type ETH_TYPE_SIZE int
-
 const (
-	ETH_IPV4 ETH_TYPE = 0x0800
-	ETH_IPV6 ETH_TYPE = 0x86DD
+	ETH_IPV4 = 0x0800
+	ETH_IPV6 = 0x86DD
+	ETH_ARP = 0x0806
 )
 
 const (
-	ETH_IPV4_SIZE ETH_TYPE_SIZE = 65575
-	ETH_IPV6_SIZE ETH_TYPE_SIZE = 65535
+	ETH_IPV4_SIZE  = 65575
+	ETH_IPV6_SIZE  = 65535
 )
 
-type Alloc struct {
-	Type ETH_TYPE
-	Size ETH_TYPE_SIZE
-}
 
 type ETH_HEADER struct{
 	S_MAC [6]byte
@@ -67,7 +60,7 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	
 	payloadBytes := eth.Payload
 
-	PrintEth(eth)
+	//PrintEth(eth)
 
 	capsule, protocol, err := L3Parser(&payloadBytes)
 
@@ -80,6 +73,7 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 
 	return eth, nil
 }
+
 
 func PrintEth(eth ETH){ 
 	fmt.Printf(

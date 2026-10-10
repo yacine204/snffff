@@ -5,45 +5,10 @@
 package main
 
 import (
-	"fmt"
-	"packet_sniffer/internal"
-	"syscall"
+	"packet_sniffer/cli"
 )
 
-// shift left side of 16 bit integer to the right
-func htons(x uint16) uint16{
-	return (x >> 8) | (x<<8) 
+func main(){
+	cli.Tui()
 }
 
-func main (){
-	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, int(htons(uint16(syscall.ETH_P_ALL))))
-
-	if err!=nil{
-		fmt.Printf("err: %s\n", err)
-		return
-	}
-
-	go internal.PacketWorker()
-	go internal.TriggerPrintTcpBucket()
-
-	buffer := make([]byte, 65536)
-	for {
-		// we lose address in udp case switch to recvfrom
-		n_bytes, err := syscall.Read(fd, buffer)
-
-		if err!=nil{
-			fmt.Printf("err: %s\n", err)
-			return
-		}	
-		pkt := buffer[:n_bytes]
-		_, err = internal.ParseEth(&pkt, &n_bytes)
-
-		if err!=nil{
-			fmt.Printf("err: %s\n", err)
-			return
-		}
-		// internal.PrintEth(eth_packet)
-		//fmt.Printf("read %d bytes, raw bytes:\n%x\n", n_bytes, buffer[:n_bytes])
-		
-	}	
-}
