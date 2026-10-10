@@ -413,7 +413,7 @@ func (ipv4 *IP4) ToString(mask bool) (string, string){
 	}
 
 	
-	return fmt.Sprintf(
+	l3 := fmt.Sprintf(
 `Version: %x
 IHL: %x
 TOS: %x
@@ -443,8 +443,17 @@ Data: %x
     ipv4.Header.DestAddr,
     ipv4.Header.Options,
     ipv4.Payload,
-	),
-	ipv4.Inner.ToString(mask)
+	)
+
+	var l4 string
+
+	if ipv4.Inner != nil{
+		l4 = ipv4.Inner.ToString(mask)
+	}else{
+		l4 = ""
+	}
+
+	return l3, l4
 }
 
 func (ipv6 *IP6) ToString(mask bool) (string, string){
@@ -456,7 +465,7 @@ func (ipv6 *IP6) ToString(mask bool) (string, string){
 		srcIP = ipv6.Header.SourceAddr[:]
 	}
 
-	return  fmt.Sprintf(`Version: %x
+	l3 :=  fmt.Sprintf(`Version: %x
 Traffic Class: %x
 Flow label: %x
 Payload Length: %x
@@ -473,8 +482,17 @@ Dest Addr: %x
 	ipv6.Header.HopLimit,
 	srcIP,
 	ipv6.Header.DestAddr,
-),
-	ipv6.inner.ToString(mask)
+)
+	
+	var l4 string
+
+	if ipv6.inner != nil{
+		l4 = ipv6.inner.ToString(mask)
+	}else {
+		l4 = ""
+	}
+
+	return l3, l4
 }
 
 func (arp *ARP_H) ToString(mask bool) (string, string){

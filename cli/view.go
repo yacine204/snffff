@@ -90,6 +90,7 @@ func Tui(masked bool) {
 		if event.Key() == tcell.KeyESC{
 			switch{
 			case tb.HasFocus():
+				app.Stop()
 				os.Exit(0)
 				return nil
 			case flex.HasFocus():
