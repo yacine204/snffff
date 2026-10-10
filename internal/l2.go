@@ -36,9 +36,6 @@ type ETH struct{
 	Inner_Protocol L3Protocols
 }
 
-
-
-
 func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	var eth = ETH{}
 

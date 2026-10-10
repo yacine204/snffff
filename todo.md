@@ -1,7 +1,12 @@
 - [ ] filtering packets by layers and protocols
 - [ ] inject packets and track them
 - [ ] add tui (gocui/tview)
+  - [x] packet dispaly
+  - [x] l3, l4 display
+  - [ ] filtering packets
+  - [ ] tcp packet reassembly display from one tcp packet.
 - [ ] l5 (display html in tui?)
 - [x] reassamble tcp packets
   - [x] grouping by flow id
-  - [x] reassambly
+  - [x] reassembly
+  - [ ] tcp reassembly from one tcp packet

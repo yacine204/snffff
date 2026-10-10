@@ -43,6 +43,7 @@ type UDP struct{
 
 type L4Capsule interface{
 	Print(mask bool)
+	ToString(mask bool) string
 }
 
 func GenerateFlowID(tcp *TCP) (string){
@@ -244,7 +245,7 @@ func ParseUDP(buffer *[]byte) (UDP, error){
 	copy(udp.Header.Dest_port[:], (*buffer)[2:4])
 	copy(udp.Header.Length[:], (*buffer)[4:6])
 	copy(udp.Header.Check_sum[:], (*buffer)[6:8])
-	copy(udp.Udp_data[:], (*buffer)[8:length])
+	udp.Udp_data = append([]byte(nil), (*buffer)[8:length]...)
 
 	return udp, nil
 }
@@ -289,6 +290,62 @@ Data: %x
 
 func (udp *UDP) Print(mask bool){
 	fmt.Printf(`
+Source Port: %x
+Dest Port: %x
+Length: %x
+Check Sum: %x
+Data: %x
+
+`,
+udp.Header.Source_port,
+udp.Header.Dest_port,
+udp.Header.Length,
+udp.Header.Check_sum,
+udp.Udp_data,
+)
+}
+
+func (tcp *TCP) ToString(mask bool) (string){
+	var sIP []byte
+	if mask{
+		sIP = []byte{0,0}
+	}else{
+		sIP = tcp.Source_port[:]
+	}
+
+	return fmt.Sprintf(`
+Source_port: %x
+Dest_port: %x
+Sequence_number: %x
+Acknowledge_number: %x
+Data_offset: %x
+Resereved: %x
+Control_flags: %x
+Window_size: %x
+Check_sum: %x
+Urgent_pointer: %x
+Options: %x
+Data: %x
+
+`,
+	sIP, 
+	tcp.Dest_port, 
+	tcp.Sequence_number,
+	tcp.Acknowledge_number,
+	tcp.Data_offset,
+	tcp.Resereved,
+	tcp.Control_flags,
+	tcp.Window_size,
+	tcp.Check_sum,
+	tcp.Urgent_pointer,
+	tcp.Options,
+	tcp.Data,
+)
+}
+
+func (udp *UDP) ToString(mask bool) (string){
+
+	return 	fmt.Sprintf(`
 Source Port: %x
 Dest Port: %x
 Length: %x

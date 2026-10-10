@@ -76,7 +76,8 @@ type ARP_H struct{
 type L3Capsule interface{
 	PrintL3(mask bool)
 	ParseInside()
-	IpToString() (string, string)
+	IpToString(mask bool) (string, string)
+	ToString(mask bool) (string, string)
 }
 
 func (ipv4 *IP4) PrintL3(mask bool){
@@ -213,7 +214,7 @@ func (ipv6 *IP6) ParseInside(){
 }
 
 func (arp *ARP_H) ParseInside(){}
-func (arp *ARP_H) IpToString() (string, string){ return "", ""}
+func (arp *ARP_H) IpToString(mask bool) (string, string){ return "", ""}
 
 func CheckIpVersion(buffer *[]byte) (int){
 	version := int((*buffer)[0] >> 4) 
@@ -334,37 +335,46 @@ func L3Parser(buffer *[]byte) (L3Capsule, L3Protocols, error) {
 	}
 }
 
-func (ip4 *IP4) IpToString() (string, string){
+func (ip4 *IP4) IpToString(mask bool) (string, string){
+	if mask{
+		const hidden = "?:?:?:?"
+		return hidden, hidden
+	}
 	source_addr := ip4.Header.SourceAddr
 	dest_addr := ip4.Header.DestAddr
 	return fmt.Sprintf("%d.%d.%d.%d", source_addr[0], source_addr[1], source_addr[2], source_addr[3]),
 	fmt.Sprintf("%d.%d.%d.%d", dest_addr[0], dest_addr[1], dest_addr[2], dest_addr[3]) 
 }
 
-func (ipv6 *IP6) IpToString() (string, string){
-	src_addr := ipv6.Header.SourceAddr
-	dst_addr := ipv6.Header.DestAddr
+func (ipv6 *IP6) IpToString(mask bool) (string, string) {
+	if mask {
+		const hidden = "?:?:?:?:?:?:?:?"
+		return hidden, hidden
+	}
+
+	src := ipv6.Header.SourceAddr
+	dst := ipv6.Header.DestAddr
 
 	return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
-            binary.BigEndian.Uint16(src_addr[0:2]),
-            binary.BigEndian.Uint16(src_addr[2:4]),
-            binary.BigEndian.Uint16(src_addr[4:6]),
-            binary.BigEndian.Uint16(src_addr[6:8]),
-            binary.BigEndian.Uint16(src_addr[8:10]),
-            binary.BigEndian.Uint16(src_addr[10:12]),
-            binary.BigEndian.Uint16(src_addr[12:14]),
-            binary.BigEndian.Uint16(src_addr[14:16]),
-        ),
+			binary.BigEndian.Uint16(src[0:2]),
+			binary.BigEndian.Uint16(src[2:4]),
+			binary.BigEndian.Uint16(src[4:6]),
+			binary.BigEndian.Uint16(src[6:8]),
+			binary.BigEndian.Uint16(src[8:10]),
+			binary.BigEndian.Uint16(src[10:12]),
+			binary.BigEndian.Uint16(src[12:14]),
+			binary.BigEndian.Uint16(src[14:16]),
+		),
 		fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
-            binary.BigEndian.Uint16(dst_addr[0:2]),
-            binary.BigEndian.Uint16(dst_addr[2:4]),
-            binary.BigEndian.Uint16(dst_addr[4:6]),
-            binary.BigEndian.Uint16(dst_addr[6:8]),
-            binary.BigEndian.Uint16(dst_addr[8:10]),
-            binary.BigEndian.Uint16(dst_addr[10:12]),
-            binary.BigEndian.Uint16(dst_addr[12:14]),
-            binary.BigEndian.Uint16(dst_addr[14:16]),
-        )
+			binary.BigEndian.Uint16(dst[0:2]),
+			binary.BigEndian.Uint16(dst[2:4]),
+			binary.BigEndian.Uint16(dst[4:6]),
+			binary.BigEndian.Uint16(dst[6:8]),
+			binary.BigEndian.Uint16(dst[8:10]),
+			binary.BigEndian.Uint16(dst[10:12]),
+			binary.BigEndian.Uint16(dst[12:14]),
+			binary.BigEndian.Uint16(dst[14:16]),
+		)
 }
 
 func IpToString(ip []byte, version L3Protocols) string {
@@ -392,5 +402,105 @@ func IpToString(ip []byte, version L3Protocols) string {
     return ""
 }
 
+
+func (ipv4 *IP4) ToString(mask bool) (string, string){
+	var srcIp []byte
+
+	if mask{
+		srcIp = []byte{0,0,0,0}
+	}else{
+		srcIp = ipv4.Header.SourceAddr[:]
+	}
+
+	
+	return fmt.Sprintf(
+`Version: %x
+IHL: %x
+TOS: %x
+Total length: %x
+Identification: %x
+Flags: %x
+Fragment offset: %x
+TTL: %x
+Protocol: %d
+Header checksum: %x
+Source Addr: %x
+Dest Addr: %x
+Options: %x
+Data: %x
+`,
+    ipv4.Header.Version,
+    ipv4.Header.IHL,
+    ipv4.Header.TOS,
+    ipv4.Header.TotalLength,
+    ipv4.Header.Indent,
+    ipv4.Header.Flags,
+    ipv4.Header.FragOffset,
+    ipv4.Header.TTL,
+    ipv4.Header.Protocol,
+    ipv4.Header.HeaderCS,
+    srcIp,
+    ipv4.Header.DestAddr,
+    ipv4.Header.Options,
+    ipv4.Payload,
+	),
+	ipv4.Inner.ToString(mask)
+}
+
+func (ipv6 *IP6) ToString(mask bool) (string, string){
+
+	var srcIP []byte
+	if mask{
+		srcIP = []byte{0,0,0,0}
+	}else{
+		srcIP = ipv6.Header.SourceAddr[:]
+	}
+
+	return  fmt.Sprintf(`Version: %x
+Traffic Class: %x
+Flow label: %x
+Payload Length: %x
+Next Header: %x
+Hop Limit: %x
+Source Addr: %x
+Dest Addr: %x
+`,
+	ipv6.Header.Version,
+	ipv6.Header.TrafficClass,
+	ipv6.Header.FlowLabel,
+	ipv6.Header.PayloadLen,
+	ipv6.Header.NextHeader,
+	ipv6.Header.HopLimit,
+	srcIP,
+	ipv6.Header.DestAddr,
+),
+	ipv6.inner.ToString(mask)
+}
+
+func (arp *ARP_H) ToString(mask bool) (string, string){
+	return fmt.Sprintf(`
+Hardware type: %x
+Protocol type: %x
+Hardware address len: %x
+Protocol Address Length: %x
+Operation: %x
+Sender Hardware Address: %x
+Sender Protocol Address: %x
+Target Hardware Address: %x
+Target Protocol Address: %x
+`,
+arp.HardwareType, 
+arp.ProtocolType,
+arp.HardwareAddrLen,
+arp.ProtocolAddrLen,
+arp.Operation,
+arp.SenderHardwareAddr,
+arp.SenderProtocolAddr,
+arp.TargetHardwareAddr,
+arp.TargetProtocolAddr,
+),
+
+""
+}
 
 
