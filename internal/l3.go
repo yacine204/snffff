@@ -76,7 +76,7 @@ type ARP_H struct{
 type L3Capsule interface{
 	PrintL3(mask bool)
 	ParseInside()
-
+	IpToString() (string, string)
 }
 
 func (ipv4 *IP4) PrintL3(mask bool){
@@ -213,7 +213,7 @@ func (ipv6 *IP6) ParseInside(){
 }
 
 func (arp *ARP_H) ParseInside(){}
-
+func (arp *ARP_H) IpToString() (string, string){ return "", ""}
 
 func CheckIpVersion(buffer *[]byte) (int){
 	version := int((*buffer)[0] >> 4) 
@@ -334,6 +334,38 @@ func L3Parser(buffer *[]byte) (L3Capsule, L3Protocols, error) {
 	}
 }
 
+func (ip4 *IP4) IpToString() (string, string){
+	source_addr := ip4.Header.SourceAddr
+	dest_addr := ip4.Header.DestAddr
+	return fmt.Sprintf("%d.%d.%d.%d", source_addr[0], source_addr[1], source_addr[2], source_addr[3]),
+	fmt.Sprintf("%d.%d.%d.%d", dest_addr[0], dest_addr[1], dest_addr[2], dest_addr[3]) 
+}
+
+func (ipv6 *IP6) IpToString() (string, string){
+	src_addr := ipv6.Header.SourceAddr
+	dst_addr := ipv6.Header.DestAddr
+
+	return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
+            binary.BigEndian.Uint16(src_addr[0:2]),
+            binary.BigEndian.Uint16(src_addr[2:4]),
+            binary.BigEndian.Uint16(src_addr[4:6]),
+            binary.BigEndian.Uint16(src_addr[6:8]),
+            binary.BigEndian.Uint16(src_addr[8:10]),
+            binary.BigEndian.Uint16(src_addr[10:12]),
+            binary.BigEndian.Uint16(src_addr[12:14]),
+            binary.BigEndian.Uint16(src_addr[14:16]),
+        ),
+		fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
+            binary.BigEndian.Uint16(dst_addr[0:2]),
+            binary.BigEndian.Uint16(dst_addr[2:4]),
+            binary.BigEndian.Uint16(dst_addr[4:6]),
+            binary.BigEndian.Uint16(dst_addr[6:8]),
+            binary.BigEndian.Uint16(dst_addr[8:10]),
+            binary.BigEndian.Uint16(dst_addr[10:12]),
+            binary.BigEndian.Uint16(dst_addr[12:14]),
+            binary.BigEndian.Uint16(dst_addr[14:16]),
+        )
+}
 
 func IpToString(ip []byte, version L3Protocols) string {
     if version == IPV4 {

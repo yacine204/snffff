@@ -11,11 +11,11 @@ func htons(x uint16) uint16 {
 	return (x >> 8) | (x << 8)
 }
 var PacketMutex sync.Mutex
-var Notify = make(chan int, 1)
+var Notify = make(chan int, 8192)
 var Packet []internal.ETH
 
 func SniffLoop() {
-	
+
 	fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, int(htons(uint16(syscall.ETH_P_ALL))))
 
 	if err != nil {
