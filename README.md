@@ -16,5 +16,5 @@ Minimal packet sniffer using unix syscalls and byte parsing
 git clone https://github.com/yacine204/snffff
 cd snffff
 go build -o main main.go
-sudo ./main # raw sockets requires root priviliges 
+sudo ./main <mask> # raw sockets requires root priviliges 
 ```
