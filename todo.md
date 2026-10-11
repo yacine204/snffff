@@ -4,9 +4,9 @@
   - [x] packet dispaly
   - [x] l3, l4 display
   - [ ] filtering packets
-  - [ ] tcp packet reassembly display from one tcp packet.
+  - [x] tcp packet reassembly display from one tcp packet.
 - [ ] l5 (display html in tui?)
 - [x] reassamble tcp packets
   - [x] grouping by flow id
   - [x] reassembly
-  - [ ] tcp reassembly from one tcp packet
+  - [x] tcp reassembly from one tcp packet
