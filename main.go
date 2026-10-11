@@ -10,9 +10,13 @@ package main
 import (
 	"packet_sniffer/cli"
 	"os"
+	// "packet_sniffer/tests"
 )
 
 func main(){
+
+	// tests.DebugRun()
+
 
 	mask := os.Args[1]
 	// network_interface := os.Args[2]

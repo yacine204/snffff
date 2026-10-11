@@ -3,8 +3,8 @@ package internal
 import (
 	"encoding/binary"
 	"fmt"
-	"os"
-	"os/signal"
+	// "os"
+	// "os/signal"
 	"sync"
 )
 
@@ -44,6 +44,25 @@ type UDP struct{
 type L4Capsule interface{
 	Print(mask bool)
 	ToString(mask bool) string
+	GetPorts() ([]byte, []byte)
+}
+
+func (tcp *TCP) GetPorts() ([]byte, []byte){
+	return tcp.Source_port[:], tcp.Dest_port[:]
+}
+
+func (udp *UDP) GetPorts() ([]byte, []byte){
+	return udp.Header.Source_port[:], udp.Header.Dest_port[:]
+}
+
+func GenerateFlowIDRaw(srcPort []byte, dstPort []byte, srcIp []byte, dstIp []byte, ipVersion L3Protocols) (string){
+	srcIPStr := IpToString(srcIp, ipVersion)
+	dstIPStr := IpToString(dstIp, ipVersion)
+
+	srcPortInt := binary.BigEndian.Uint16(srcPort[:])
+	dstPortInt := binary.BigEndian.Uint16(dstPort[:])
+
+	return fmt.Sprintf("%s:%d-%s:%d", srcIPStr, srcPortInt, dstIPStr, dstPortInt)
 }
 
 func GenerateFlowID(tcp *TCP) (string){
@@ -104,7 +123,7 @@ var ReassembledTcp = make(map[string][]byte)
 var ReassembleTcpMutex sync.Mutex
 
 
-func ReassembleTcpPerFlow(tcpBucket map[string][]TCP, flowId string){
+func ReassembleTcpPerFlow(tcpBucket map[string][]TCP, flowId string) (RflowId string, data []byte){
 	pkts := tcpBucket[flowId]
 
 	if len(pkts) == 0 {
@@ -141,8 +160,16 @@ func ReassembleTcpPerFlow(tcpBucket map[string][]TCP, flowId string){
 	ReassembleTcpMutex.Lock()
 	ReassembledTcp[flowId] = buf
 	ReassembleTcpMutex.Unlock()
+
+	return flowId, buf
 }
 
+type NotifyReassemble struct{
+	FlowId string
+	Data []byte
+}
+
+var ReassembleNotified = make(chan NotifyReassemble, 2048)
 
 func PacketWorker() {
 	for tcp := range PacketChan {
@@ -151,8 +178,14 @@ func PacketWorker() {
 		flowId := GenerateFlowID(&local)
 
 		tcpBucketMutex.RLock()
-		ReassembleTcpPerFlow(tcpBucket, flowId)
+		_, data := ReassembleTcpPerFlow(tcpBucket, flowId)
 		tcpBucketMutex.RUnlock()
+
+		ReassembleNotified <-NotifyReassemble{
+			FlowId: flowId,
+			Data: data,
+		}
+
 	}
 }
 
@@ -174,21 +207,44 @@ func  PrintReassembledTcpBucket(reassembledTcpBucket map[string][]byte){
 	}
 }
 
-func TriggerPrintTcpBucket(){
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+func TriggerPrintReassembledTcpBucket(){
+	// First idea : Print on exit
+
+	// c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt)
 	
-	<-c
+	// <-c
 
-	tcpBucketMutex.RLock()
-	ReassembleTcpMutex.Lock()
-	// PrintGroupedTcpBucket(tcpBucket)
-	//PrintReassembledTcpBucket(ReassembledTcp)
-	ReassembleTcpMutex.Unlock()
-	tcpBucketMutex.RUnlock()
+	// tcpBucketMutex.RLock()
+	// ReassembleTcpMutex.Lock()
+	// PrintReassembledTcpBucket(ReassembledTcp)
+	// ReassembleTcpMutex.Unlock()
+	// tcpBucketMutex.RUnlock()
 
-	os.Exit(0)
+	// os.Exit(0)
+
+	// Curr idea : Print everytime we get from channel
+
+	for n := range ReassembleNotified{
+
+		ReassembleTcpMutex.Lock()
+		data := ReassembledTcp[n.FlowId]
+		ReassembleTcpMutex.Unlock()
+
+		fmt.Printf("flow %s (%d bytes):\n% x\n\n",n.FlowId, len(data), data)
+	}
 }
+
+func UpdatedTCPReassemblyByFlowId(flowId string) []byte{
+	ReassembleTcpMutex.Lock()
+	data := ReassembledTcp[flowId]
+	ReassembleTcpMutex.Unlock()
+
+	return data
+}
+
+var SeenUIDFlow []string
+
 
 func ParseTCP(buffer *[]byte, srcIP []byte, destIp []byte, version L3Protocols) (TCP, error){
 

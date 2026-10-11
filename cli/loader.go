@@ -24,7 +24,6 @@ func SniffLoop() {
 	}
 
 	go internal.PacketWorker()
-	go internal.TriggerPrintTcpBucket()
 
 	buffer := make([]byte, 65536)
 	for {

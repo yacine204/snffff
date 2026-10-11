@@ -78,6 +78,48 @@ type L3Capsule interface{
 	ParseInside()
 	IpToString(mask bool) (string, string)
 	ToString(mask bool) (string, string)
+	GetInnerProtocol() (L4Protocols)
+}
+
+
+type L4Protocols string
+
+
+const (
+	TCPProtocol L4Protocols = "tcp"
+	UDPProtocol L4Protocols = "udp"
+	None L4Protocols = ""
+)
+
+func (ipv4 *IP4) GetInnerProtocol() L4Protocols{
+	var protocol L4Protocols
+	switch ipv4.Header.Protocol{
+	case tcp:
+		protocol = TCPProtocol
+	case udp:
+		protocol = UDPProtocol
+	default:
+		protocol = None
+	}
+	return protocol
+}
+
+
+func (ipv6 *IP6) GetInnerProtocol() L4Protocols{
+	var protocol L4Protocols
+	switch ipv6.Header.NextHeader{
+	case tcp:
+		protocol = TCPProtocol
+	case udp:
+		protocol = UDPProtocol
+	default: 
+		protocol = None
+	}
+	return protocol
+}
+
+func (arp *ARP_H) GetInnerProtocol() L4Protocols{
+	return None
 }
 
 func (ipv4 *IP4) PrintL3(mask bool){
@@ -522,3 +564,37 @@ arp.TargetProtocolAddr,
 }
 
 
+func FlowID(l3 L3Capsule) (string, bool) {
+	if l3 == nil {
+		return "", false
+	}
+	var inner L4Capsule
+	switch v := l3.(type) {
+	case *IP4:
+		inner = v.Inner
+	case *IP6:
+		inner = v.inner
+	default:
+		return "", false
+	}
+	if inner == nil {
+		return "", false
+	}
+
+	srcPort, dstPort := inner.GetPorts()
+	if srcPort == nil || dstPort == nil {
+		return "", false
+	}
+
+	ipc, ok := l3.(interface {
+		IpToString(mask bool) (string, string)
+	})
+	if !ok {
+		return "", false
+	}
+	srcIP, dstIP := ipc.IpToString(false)
+
+	sp := binary.BigEndian.Uint16(srcPort)
+	dp := binary.BigEndian.Uint16(dstPort)
+	return fmt.Sprintf("%s:%d-%s:%d", srcIP, sp, dstIP, dp), true
+}
