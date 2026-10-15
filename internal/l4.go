@@ -45,6 +45,7 @@ type L4Capsule interface{
 	Print(mask bool)
 	ToString(mask bool) string
 	GetPorts() ([]byte, []byte)
+	Filter(flowId string) (*ETH, error)
 }
 
 func (tcp *TCP) GetPorts() ([]byte, []byte){
@@ -415,4 +416,26 @@ udp.Header.Length,
 udp.Header.Check_sum,
 udp.Udp_data,
 )
+}
+
+
+func (tcp *TCP) Filter(flowId string) (*ETH, error) {
+	if len(ReassembledTcp[flowId]) == 0 {
+		return &ETH{}, fmt.Errorf("No reassembly for this flow yet!")
+	}
+
+	for _, packet := range EthPackets{
+		if packet.Inner.GetInnerProtocol() == TCPProtocol{
+			if flowId == GenerateFlowID(tcp){
+				return &packet, nil
+			}
+		}
+	}
+	return &ETH{}, fmt.Errorf("Couldn't track that packet!")
+}
+
+
+func (udp *UDP) Filter(flowId string) (*ETH, error) {
+
+	return &ETH{}, nil
 }

@@ -17,7 +17,6 @@ func main(){
 
 	// tests.DebugRun()
 
-
 	mask := os.Args[1]
 	// network_interface := os.Args[2]
 	var masked bool

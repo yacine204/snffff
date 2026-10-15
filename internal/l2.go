@@ -36,6 +36,8 @@ type ETH struct{
 	Inner_Protocol L3Protocols
 }
 
+var EthPackets []ETH
+
 func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	var eth = ETH{}
 
@@ -68,6 +70,8 @@ func ParseEth(buffer *[]byte, n_bytes *int) (ETH, error){
 	eth.Inner = capsule
 	eth.Inner_Protocol = protocol
 
+	EthPackets = append(EthPackets, eth)
+	
 	return eth, nil
 }
 

@@ -47,6 +47,15 @@ func Tui(masked bool) {
 	reassemblyView.SetBorder(true)
 	reassemblyView.SetScrollable(true)
 
+
+	filter := tview.NewInputField()
+	filter.SetBorder(true)
+
+	lflex := tview.NewFlex().SetDirection(tview.FlexRow)
+	lflex.SetBorder(true)
+	lflex.AddItem(filter, 0, 1,true)
+	lflex.AddItem(tb,0,12,true)
+
 	rflex := tview.NewFlex().SetDirection(tview.FlexRow)
 	rflex.AddItem(utv, 0, 1, true)
 	rflex.AddItem(ltv, 0, 1, true)
@@ -55,15 +64,16 @@ func Tui(masked bool) {
 
 	
 
+
 	ltv.SetScrollable(true)
 	
 	var reassemblyViewVisible bool 
 	var currentFlowID string
+
 	flex := tview.NewFlex().
-		AddItem(tb, 0, 2, true).
+		AddItem(lflex, 0, 2, true).
 		AddItem(rflex, 0, 1, true)
 		
-
 	app := tview.NewApplication().SetRoot(flex, true)
 
 

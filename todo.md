@@ -10,3 +10,6 @@
   - [x] grouping by flow id
   - [x] reassembly
   - [x] tcp reassembly from one tcp packet
+- [ ] add debug mode in args
+
+- [ ] check if there is duplicate tracking of packets
