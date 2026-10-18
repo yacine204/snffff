@@ -20,7 +20,7 @@ func generateLineHeader(eth *internal.ETH, idx int, masked bool) string {
 
 	s_ip, d_ip := eth.Inner.IpToString(masked)
 
-	line := fmt.Sprintf("[%d] [blue]src mac=%x[-] [yellow]dest mac=%x[-] [green]src ip=%s[-] [orange]dest ip=%s\n[-] Protocol: %s", idx, s, d, s_ip, d_ip, string(eth.Inner.GetInnerProtocol()))
+		line := fmt.Sprintf("[%d] [blue]src mac=%x[-] [yellow]dest mac=%x[-] [green]src ip=%s[-] [orange]dest ip=%s\n[-] Protocol: %s", idx, s, d, s_ip, d_ip, strings.ToUpper(string(eth.Inner.GetInnerProtocol())))
 	return line
 }
 
@@ -102,24 +102,33 @@ func Tui(masked bool, demo bool) {
 	utv.SetDynamicColors(true)
 	utv.SetScrollable(true)
 	utv.SetBorder(true)
+	utv.SetTitleColor(tcell.ColorYellow)
 
 	ltv := tview.NewTextView()
 	ltv.SetDynamicColors(true)
 	ltv.SetScrollable(true)
 	ltv.SetBorder(true)
+	ltv.SetTitleColor(tcell.ColorYellow)
 
 	tb := tview.NewTable()
 	tb.SetBorder(true)
 	tb.SetSelectable(true, false)
 	tb.SetTitle("Packets")
+	tb.SetTitleColor(tcell.ColorYellow)
+	tb.SetTitleAlign(0)
 
 	reassemblyView := tview.NewTextView()
 	reassemblyView.SetDynamicColors(true)
 	reassemblyView.SetBorder(true)
 	reassemblyView.SetScrollable(true)
+	reassemblyView.SetTitleColor(tcell.ColorYellow)
+	reassemblyView.SetTitleColor(tcell.ColorYellow)
 
 	filter := tview.NewInputField()
 	filter.SetBorder(true)
+	filter.SetTitle("Filter")
+	filter.SetTitleColor(tcell.ColorYellow)
+	filter.SetTitleAlign(0)
 
 	lflex := tview.NewFlex().SetDirection(tview.FlexRow)
 	lflex.SetBorder(true)
@@ -135,6 +144,7 @@ func Tui(masked bool, demo bool) {
 	ltv.SetScrollable(true)
 
 	var reassemblyViewVisible bool
+	var ltvVisible = true
 	var currentFlowID string
 	var visibleIdx []int
 	var filterActive bool
@@ -231,8 +241,26 @@ func Tui(masked bool, demo bool) {
 		l3text, l4text := p.Inner.ToString(true)
 		utv.SetText(l3text)
 		ltv.SetText(l4text)
-		utv.SetTitle(string(p.Inner_Protocol))
-		ltv.SetTitle(string(p.Inner.GetInnerProtocol()))
+		utv.SetTitle(strings.ToUpper(string(p.Inner_Protocol)))
+		utv.SetTitleAlign(0)
+
+		isARP := p.Inner.GetInnerProtocol() == internal.None && p.Inner_Protocol == internal.ARP
+		if isARP {
+			if ltvVisible {
+				ltvVisible = false
+				rflex.ResizeItem(ltv, 0, 0)
+			}
+			ltv.SetText("")
+			ltv.SetTitle("ARP")
+			ltv.SetTitleAlign(0)
+		} else {
+			if !ltvVisible {
+				ltvVisible = true
+				rflex.ResizeItem(ltv, 0, 1)
+			}
+			ltv.SetTitle(strings.ToUpper(string(p.Inner.GetInnerProtocol())))
+			ltv.SetTitleAlign(0)
+		}
 
 		isTCP := p.Inner.GetInnerProtocol() == internal.TCPProtocol
 		if isTCP && !reassemblyViewVisible {
@@ -241,6 +269,7 @@ func Tui(masked bool, demo bool) {
 
 			flowId, _ := internal.FlowID(p.Inner)
 			reassemblyView.SetTitle(flowId)
+			reassemblyView.SetTitleAlign(0)
 			data := internal.UpdatedTCPReassemblyByFlowId(flowId)
 			reassemblyView.SetText(fmt.Sprintf("% x", data))
 			currentFlowID = flowId
