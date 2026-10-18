@@ -48,6 +48,7 @@ type L4Capsule interface{
 	Filter(flowId string) (*ETH, error)
 }
 
+
 func (tcp *TCP) GetPorts() ([]byte, []byte){
 	return tcp.Source_port[:], tcp.Dest_port[:]
 }
@@ -420,6 +421,7 @@ udp.Udp_data,
 
 
 func (tcp *TCP) Filter(flowId string) (*ETH, error) {
+
 	if len(ReassembledTcp[flowId]) == 0 {
 		return &ETH{}, fmt.Errorf("No reassembly for this flow yet!")
 	}
@@ -433,6 +435,7 @@ func (tcp *TCP) Filter(flowId string) (*ETH, error) {
 	}
 	return &ETH{}, fmt.Errorf("Couldn't track that packet!")
 }
+
 
 
 func (udp *UDP) Filter(flowId string) (*ETH, error) {

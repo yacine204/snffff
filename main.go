@@ -1,15 +1,11 @@
-// intercept copies of packets (keep Layer 2 for confirmation since it has mac)
-// workflow: parse the raw bytes to structured .csv
-// 			?keep scanning and log to the terminal directly
-
-// args: 
-//		-mask
-//		-nework interface 
+// usage : sudo ./main --mask --demo
+// args : --mask : hides ip, port
+//		  --demo : fake network data
 package main
 
 import (
 	"packet_sniffer/cli"
-	"os"
+	"flag"
 	// "packet_sniffer/tests"
 )
 
@@ -17,12 +13,10 @@ func main(){
 
 	// tests.DebugRun()
 
-	mask := os.Args[1]
-	// network_interface := os.Args[2]
-	var masked bool
-	if mask == "masked"{
-		masked = true
-	}
-	cli.Tui(masked)
+	mask := flag.Bool("mask", false, "mask Mac Ip Port addresses")
+	demo := flag.Bool("demo", false, "use synthetic demo packets instead of live capture")
+	flag.Parse()
+
+	cli.Tui(*mask, *demo)
 }
 
