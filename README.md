@@ -1,17 +1,27 @@
 # snffff
 
-Tui packet sniffer using unix raw sockets, supports TCP reassembly and regrouping.
+Tui packet sniffer for linux, supports TCP reassembly and regrouping.
+
+## Why
+
+educational purposes only.
 
 ## What it does 
 
 - Intercepts ethernet packets using `AF_PACKET` sockets
-- parses layer 2-4 from osi
-- grouping/reassembling tcp packets by flowId
-- filter packets by flowId (srcIp+srcPort+dstIp+dstPort)
+- parses OSI layers 2–4 (Ethernet, IPv4/IPv6/ARP, TCP/UDP)
+- groups TCP segments into flows and reassembles them by sequence number
+- filter packets by flowId (srcIp:srcPort:dstIp:dstPort)
+  
+## Demo
+
+>note: demo using `--demo`, which means no real traffic network is captured or shown.
+
+![demo](assets/demo.png)
 
 https://github.com/user-attachments/assets/456196d7-7ca9-422b-819f-e038b94b4e45
 
-## Installation (works only on unix systems)
+## Installation (linux only)
 
 ```bash 
 git clone https://github.com/yacine204/snffff
