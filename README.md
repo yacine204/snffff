@@ -9,9 +9,7 @@ Tui packet sniffer using unix raw sockets, supports TCP reassembly and regroupin
 - grouping/reassembling tcp packets by flowId
 - filter packets by flowId (srcIp+srcPort+dstIp+dstPort)
 
-<video controls muted loop playsinline width="100%" poster="assets/demo.png">
-	<source src="assets/demo.mp4" type="video/mp4">
-</video>
+https://github.com/user-attachments/assets/456196d7-7ca9-422b-819f-e038b94b4e45
 
 ## Installation (works only on unix systems)
 
